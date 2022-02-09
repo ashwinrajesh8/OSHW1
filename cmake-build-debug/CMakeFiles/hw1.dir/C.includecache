@@ -7,4 +7,10 @@
 #IncludeRegexTransform: 
 
 C:/Users/Ashwi/OneDrive/Documents/GitHub/OSHW1/hw1.c
+stdio.h
+-
+stdlib.h
+-
+sys/stat.h
+-
 
