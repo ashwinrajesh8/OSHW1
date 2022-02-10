@@ -4,7 +4,8 @@
 #include <sys/stat.h>
 
 int temp_a, temp_c, temp_m, temp_x = 0;         // make the temporary ints parsed from each line in file a global var for ez access
-int sum;
+int sum = 0;
+int roundCounter = 0;
 
 typedef struct {                         // each thread is set to have 4 integer properties
     int *a;
@@ -82,17 +83,26 @@ int numRounds;                                        // number of rounds to go 
 // Function provided to generate random numbers
 int f1(int x, int a, int c, int m) {
     long int x1 = x * a + c;
+    printf("%d %d\n", (int)(x1 % m), x*a+c);
     return (int)(x1 % m);
 }
 
 // Below is snippet from class
-void *runner(void *param) {             // The thread will execute in this function
-    int i, upper = atoi(param);
-    sum = 0;
+void *runner(void *param) {             // The thread will execute in this function (changed from void)
+//    int i, upper = atoi(param);
+//    sum = 0;
+//
+//
+//
+//    for(i = 1; i <= upper; i++) {
+//        sum += i;
+//    }
+    //
+    Thread *curr_thread = param;
+    printf("%d %d %d %d\n", curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
+    sum = f1(curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
+    //
 
-    for(i = 1; i <= upper; i++) {
-        sum += i;
-    }
     pthread_exit(0);
 }
 
@@ -129,28 +139,34 @@ int main(int argc, char **argv) {
     // threads, numThreads, and numRounds are now populated
 
     /// Thread Experiment Start
-        pthread_t tid;                  // this is the thread identifier
-        pthread_attr_t attr;            // set of thread attributes
-
-        pthread_attr_init(&attr);                           // setting the default attributes of the thread
-        pthread_create(&tid, &attr, runner, "123");       // create the thread
-        pthread_join(tid, NULL);                        // wait for thread to exit
-
-        printf("sum = %d\n", sum);
+//        pthread_t tid;                  // this is the thread identifier
+//        pthread_attr_t attr;            // set of thread attributes
+//
+//        pthread_attr_init(&attr);                           // setting the default attributes of the thread
+//        pthread_create(&tid, &attr, runner, argv[1]);       // create the thread
+//        pthread_join(tid, NULL);                        // wait for thread to exit
+//
+//        printf("sum = %d\n", sum);
     /// End of Thread Experiment
 
     // Create all threads (each assigned number starting from 0)
-    //pthread_t tid;
+    pthread_t threader[numThreads];
+    pthread_attr_t attributes[numThreads];
     for(int k = 0; k < numThreads; k++){
-        pthread_create(&tid, NULL, runner, (void *)&tid);
+        pthread_attr_init(&attributes[k]);
+        pthread_create(&threader[k], &attributes[k], runner, &threads);
     }
 
     // Run through Rounds
     for(int j = 0; j < numRounds; j++){
         printf("Main process start round %d\n", j+1);
         for(int l = 0; l < numThreads; l++){
-
+//            pthread_attr_init(&attributes[l]);
+//            pthread_create(&threader[l], &attributes[l], runner, &threads);
+            pthread_join(threader[l], NULL);
+            printf("sum = %d\n", sum);
         }
+        roundCounter++;
     }
 
     printf("Got Here! %s %d %d", argv[1], numThreads, numRounds);
