@@ -7,12 +7,12 @@
 #IncludeRegexTransform: 
 
 C:/Users/Ashwi/OneDrive/Documents/GitHub/OSHW1/hw1.c
+pthread.h
+-
 stdio.h
 -
 stdlib.h
 -
 sys/stat.h
--
-pthread.h
 -
 
