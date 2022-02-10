@@ -2,10 +2,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <stdbool.h>
+#include <time.h> // for experiment
 
 int temp_a, temp_c, temp_m, temp_x = 0;         // make the temporary ints parsed from each line in file a global var for ez access
 int sum = 0;
 int roundCounter = 0;
+bool quitThread = false;
+int currThreadNum = 0;
+
+// need to make on heap so that it can be dynamic in size
+pthread_mutex_t m[3], m2;
+pthread_cond_t c[3];
+int results[3];
+//
+
 
 typedef struct {                         // each thread is set to have 4 integer properties
     int *a;
@@ -99,7 +110,7 @@ void *runner(void *param) {             // The thread will execute in this funct
 //    }
     //
     Thread *curr_thread = param;
-    printf("%d %d %d %d\n", curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
+    printf("threadView: %d %d %d %d\n", curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
     sum = f1(curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
     //
 
@@ -108,7 +119,16 @@ void *runner(void *param) {             // The thread will execute in this funct
 
 // runner function
 void *multiThreaderRunner(void *param) {
+    int x = ((Thread*)param)->x[currThreadNum];
+    int a = ((Thread*)param)->a[currThreadNum];
+    int c = ((Thread*)param)->c[currThreadNum];
+    int m = ((Thread*)param)->m[currThreadNum];
 
+
+    sum = f1(x, a, c, m);
+    printf("\nsummy: %d\n", sum);
+
+    return NULL;
 }
 
 // We assume the input file path to be accessed via argv[1]
@@ -149,6 +169,52 @@ int main(int argc, char **argv) {
 //        printf("sum = %d\n", sum);
     /// End of Thread Experiment
 
+
+    // from sample github repo
+    srand(time(NULL));
+    pthread_t t[3];
+
+    for (int i = 0; i < 3; ++i){
+        if (pthread_cond_init(&c[i], NULL) != 0){
+            perror("Bad cond");
+            exit(1);
+        }
+        if (pthread_mutex_init(&m[i], NULL) != 0){
+            perror("Bad mutex");
+            exit(1);
+        }
+    }
+    if (pthread_mutex_init(&m2, NULL) != 0){
+        perror("Bad mutex");
+        exit(1);
+    }
+    // loop below for rounds
+    for (int i = 0; i < 3; ++i){
+        currThreadNum = i;
+        if (pthread_create(&t[i], NULL, multiThreaderRunner, &threads) != 0){
+            perror("Bad create");
+            exit(1);
+        }
+    }
+    for (int i = 0; i < 3; ++i) {
+        if (pthread_join(t[i], NULL) != 0) {
+            perror("Bad join");
+            exit(1);
+        }
+    }
+    for (int i = 0; i < 3; ++i){
+        if (pthread_mutex_destroy(&m[i]) != 0){
+            perror("Bad mutex destroy");
+            exit(1);
+        }
+        if (pthread_cond_destroy(&c[i]) != 0){
+            perror("Bad cond destroy");
+            exit(1);
+        }
+    }
+
+
+
     // Create all threads (each assigned number starting from 0)
     pthread_t threader[numThreads];
     pthread_attr_t attributes[numThreads];
@@ -169,7 +235,7 @@ int main(int argc, char **argv) {
         roundCounter++;
     }
 
-    printf("Got Here! %s %d %d", argv[1], numThreads, numRounds);
+    printf("Got Here! %s %d %d %d", argv[1], numThreads, numRounds, threads.a[2]);
     freeThread(&threads);
     pthread_exit(NULL);
     return 0;
