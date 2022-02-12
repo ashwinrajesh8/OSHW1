@@ -220,6 +220,7 @@ int main(int argc, char **argv) {
     pthread_attr_t attributes[numThreads];
     for(int k = 0; k < numThreads; k++){
         pthread_attr_init(&attributes[k]);
+        printf("Anotha one\n"); // remove after tests
         pthread_create(&threader[k], &attributes[k], runner, &threads);
     }
 
