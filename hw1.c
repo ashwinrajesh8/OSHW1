@@ -127,14 +127,15 @@ void *runner(void *param) {             // The thread will execute in this funct
 //    sum = f1(curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
 //    //
     int q = *((int *) param);
-    printf("Child %d : Thread created\n", q);
+    //printf("Child %d : Thread created\n", q);
     int internalCounter = roundCounter;
     int currSum = 0;
     while(quitThread == false){
         if(internalCounter == roundCounter && nextRound <= numThreads) {
             currSum = f1(threads.x[q], threads.a[q], threads.c[q], threads.m[q]);
-            printf("threadView %d, %d, %d, %d: %d %d %d %d\n", q, roundCounter, nextRound, currSum, threads.x[q], threads.a[q],threads.c[q], threads.m[q]);
+            //printf("threadView %d, %d, %d, %d: %d %d %d %d\n", q, roundCounter, nextRound, currSum, threads.x[q], threads.a[q],threads.c[q], threads.m[q]);
             threads.x[q] = currSum;
+            printf("Thread %d call f1() returns %d\n", q, currSum);
             nextRound++;
         }
         internalCounter++;
@@ -158,7 +159,7 @@ void *multiThreaderRunner(void *param) {
 
 // We assume the input file path to be accessed via argv[1]
 int main(int argc, char **argv) {
-    printf("Name of Input File: %s\n", argv[1]);        // "when program starts, you should print out name of file"
+    printf("Name of Input File: %s\n\n", argv[1]);        // "when program starts, you should print out name of file"
     /// File Parsing Starts Here
         FILE *in_file = fopen(argv[1], "r");
         struct stat sb;
@@ -172,7 +173,7 @@ int main(int argc, char **argv) {
             }
             else if(counter == 1){numRounds = atoi(file_contents);}
             else if (counter > 1){
-                printf("Line items: %s\n", file_contents);
+                //printf("Line items: %s\n", file_contents);
                 sscanf(file_contents,"%d %d %d %d", &temp_a, &temp_c, &temp_m, &temp_x);
                 insertThread(&threads, temp_a, temp_c, temp_m, temp_x);
             }
@@ -204,34 +205,70 @@ int main(int argc, char **argv) {
         int *x = (int *)malloc(sizeof(int));
         *x = k;
         pthread_create(&(threader[k]), &attribute, runner, (void *) x);
-        printf("Parent: Created thread with ID: %d\n", threader[k]);
+        //printf("Parent: Created thread with ID: %d\n", threader[k]);
     }
 
     // Run through Rounds
     for(int j = 0; j < numRounds; j++){
-        printf("Main process start round %d\n", j+1);
+        printf("\nMain process start round %d\n", j+1);
         while(nextRound != numThreads){
             // wait
         }
         // for all threads get x
         // if x is largest or smallest (no tie), increment thread score
-        int smallestThread;
-        int largestThread;
+        int smallestThread = threads.x[0];
+        int largestThread = threads.x[0];
+        int currMax = INT_MIN;
+        int currMin = INT_MAX;
+        // find min & max:
         for(int l = 0; l < numThreads; l++){
-            // update some global var here to send message to threads
+            if(threads.x[l] == currMax){
+                largestThread = INT_MAX;
+            }
+            if(threads.x[l] > currMax){
+                largestThread = l;
+                currMax = threads.x[l];
+            }
+            if(threads.x[l] == currMin){
+                smallestThread = INT_MIN;
+            }
+            if(threads.x[l] < currMin){
+                smallestThread = l;
+                currMin = threads.x[l];
+            }
         }
+        printf("Round %d finished. Winners are ", roundCounter);
+        if(smallestThread != INT_MIN){
+            threads.score[smallestThread]++;
+            printf("%d ", smallestThread);
+        }
+        if(largestThread != INT_MAX){
+            threads.score[largestThread]++;
+            printf("%d ", largestThread);
+        }
+        printf("\n");
         nextRound = 0;
         roundCounter++;
 
     }
     quitThread = true;
 
-    for (int m = 0; m < numThreads; m++){
-        pthread_join(threader[m], NULL);
-        printf("Parent: Joined thread %d\n", threader[m]);
+    int maxScore = 0;
+    for (int n = 0; n < numThreads; n++){
+        if(threads.score[n] > maxScore){
+            maxScore = threads.score[n];
+        }
+        printf("Score for thread %d: %d\n", n, threads.score[n]);
+        pthread_join(threader[n], NULL);
     }
+    printf("\nOverall winner: ");
+    for(int p = 0; p < numThreads; p++){
+        if(threads.score[p] == maxScore) {
+            printf("%d ", p);
+        }
+    }
+    printf("\n");
 
-    printf("Got Here! %s %d %d %d", argv[1], numThreads, numRounds, threads.a[2]);
     freeThread(&threads);
     pthread_exit(NULL);
     return 0;
