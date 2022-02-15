@@ -3,23 +3,23 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <stdbool.h>
-#include <time.h> // for experiment
+#include <unistd.h>
 
+/*
+ * Ashwin Rajesh, Operating Systems, Program 1
+ * File created: 2/9/2022
+ * Last edit: 2/15/2022
+ * Pass the full path to the desired input file as program arguments
+ * More information can be found via https://github.com/ashwinrajesh8/OSHW1 (currently private)
+*/
+
+// Global vars:
 int temp_a, temp_c, temp_m, temp_x = 0;         // make the temporary ints parsed from each line in file a global var for ez access
-int sum = 0;
 int roundCounter = 0;
 bool quitThread = false;
 int nextRound = 0;
-int currThreadNum = 0;
 
-// need to make on heap so that it can be dynamic in size
-pthread_mutex_t m[3], m2;
-pthread_cond_t c[3];
-int results[3];
-//
-
-
-typedef struct {                         // each thread is set to have 4 integer properties
+typedef struct {                         // each thread is set to have 4 integer properties + score weight
     int *a;
     int *c;
     int *m;
@@ -100,10 +100,11 @@ void freeThread(Thread *thready){
     thready->used_x = thready->size_x = 0;
     thready->used_score = thready->size_score = 0;
 }
+
+// More global vars:
 Thread threads;
 int numThreads;                                         // number of threads to be created
 int numRounds;                                        // number of rounds to go through
-
 
 // Function provided to generate random numbers
 int f1(int x, int a, int c, int m) {
@@ -111,29 +112,14 @@ int f1(int x, int a, int c, int m) {
     return (int)(x1 % m);
 }
 
-// Below is snippet from class
-void *runner(void *param) {             // The thread will execute in this function (changed from void)
-//    int i, upper = atoi(param);
-//    sum = 0;
-//
-//
-//
-//    for(i = 1; i <= upper; i++) {
-//        sum += i;
-//    }
-//    //
-//    Thread *curr_thread = param;
-//    printf("threadView: %d %d %d %d\n", curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
-//    sum = f1(curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
-//    //
+void *runner(void *param) {             // The thread will execute in this function
     int q = *((int *) param);
-    //printf("Child %d : Thread created\n", q);
     int internalCounter = roundCounter;
     int currSum = 0;
     while(quitThread == false){
         if(internalCounter == roundCounter && nextRound <= numThreads) {
             currSum = f1(threads.x[q], threads.a[q], threads.c[q], threads.m[q]);
-            //printf("threadView %d, %d, %d, %d: %d %d %d %d\n", q, roundCounter, nextRound, currSum, threads.x[q], threads.a[q],threads.c[q], threads.m[q]);
+            //Test print: printf("threadView %d, %d, %d, %d: %d %d %d %d\n", q, roundCounter, nextRound, currSum, threads.x[q], threads.a[q],threads.c[q], threads.m[q]);
             threads.x[q] = currSum;
             printf("Thread %d call f1() returns %d\n", q, currSum);
             nextRound++;
@@ -141,20 +127,6 @@ void *runner(void *param) {             // The thread will execute in this funct
         internalCounter++;
     }
     pthread_exit(0);
-}
-
-// runner function
-void *multiThreaderRunner(void *param) {
-    int x = ((Thread*)param)->x[currThreadNum];
-    int a = ((Thread*)param)->a[currThreadNum];
-    int c = ((Thread*)param)->c[currThreadNum];
-    int m = ((Thread*)param)->m[currThreadNum];
-
-
-    sum = f1(x, a, c, m);
-    printf("\nsummy: %d\n", sum);
-
-    return NULL;
 }
 
 // We assume the input file path to be accessed via argv[1]
@@ -168,12 +140,11 @@ int main(int argc, char **argv) {
         int counter = 0;
         while (fscanf(in_file, "%[^\n] ", file_contents) != EOF) {
             if(counter == 0){
-                numThreads = atoi(file_contents);
+                sscanf(file_contents, "%d %d", &numThreads, &numRounds);
                 initThread(&threads, numThreads);
             }
-            else if(counter == 1){numRounds = atoi(file_contents);}
-            else if (counter > 1){
-                //printf("Line items: %s\n", file_contents);
+            else if (counter > 0){
+                //print test: printf("Line items: %s\n", file_contents);
                 sscanf(file_contents,"%d %d %d %d", &temp_a, &temp_c, &temp_m, &temp_x);
                 insertThread(&threads, temp_a, temp_c, temp_m, temp_x);
             }
@@ -183,93 +154,82 @@ int main(int argc, char **argv) {
     /// File Parsing End
     // threads, numThreads, and numRounds are now populated
 
-    /// Thread Experiment Start
-//        pthread_t tid;                  // this is the thread identifier
-//        pthread_attr_t attr;            // set of thread attributes
-//
-//        pthread_attr_init(&attr);                           // setting the default attributes of the thread
-//        pthread_create(&tid, &attr, runner, argv[1]);       // create the thread
-//        pthread_join(tid, NULL);                        // wait for thread to exit
-//
-//        printf("sum = %d\n", sum);
-    /// End of Thread Experiment
+    /// Multi threading starts here
+        pthread_t threader[numThreads];
+        pthread_attr_t attribute;
+        pthread_attr_init(&attribute);
 
-
-
-    // Create all threads (each assigned number starting from 0)
-    pthread_t threader[numThreads];
-    pthread_attr_t attribute;
-    pthread_attr_init(&attribute);
-
-    for(int k = 0; k < numThreads; k++){
-        int *x = (int *)malloc(sizeof(int));
-        *x = k;
-        pthread_create(&(threader[k]), &attribute, runner, (void *) x);
-        //printf("Parent: Created thread with ID: %d\n", threader[k]);
-    }
-
-    // Run through Rounds
-    for(int j = 0; j < numRounds; j++){
-        printf("\nMain process start round %d\n", j+1);
-        while(nextRound != numThreads){
-            // wait
+        // Create & Initialize all threads (each assigned number starting from 0)
+        for(int k = 0; k < numThreads; k++){
+            int *x = (int *)malloc(sizeof(int));
+            *x = k;
+            pthread_create(&(threader[k]), &attribute, runner, (void *) x);
+            //print test: printf("Parent: Created thread with ID: %d\n", threader[k]);
         }
-        // for all threads get x
-        // if x is largest or smallest (no tie), increment thread score
-        int smallestThread = threads.x[0];
-        int largestThread = threads.x[0];
-        int currMax = INT_MIN;
-        int currMin = INT_MAX;
-        // find min & max:
-        for(int l = 0; l < numThreads; l++){
-            if(threads.x[l] == currMax){
-                largestThread = INT_MAX;
+
+        // Run through Rounds
+        for(int j = 0; j < numRounds; j++){
+            printf("\nMain process start round %d\n", j+1);
+            sleep(1);                                                   // added in order to ensure printing order (since thread results may print faster than the above print)
+            while(nextRound != numThreads){
+                // wait for all threads to generate f1()
             }
-            if(threads.x[l] > currMax){
-                largestThread = l;
-                currMax = threads.x[l];
+            int smallestThread = threads.x[0];
+            int largestThread = threads.x[0];
+            int currMax = INT_MIN;
+            int currMin = INT_MAX;
+            // find min & max:
+            for(int l = 0; l < numThreads; l++){
+                if(threads.x[l] == currMax){
+                    largestThread = INT_MAX;
+                }
+                if(threads.x[l] > currMax){
+                    largestThread = l;
+                    currMax = threads.x[l];
+                }
+                if(threads.x[l] == currMin){
+                    smallestThread = INT_MIN;
+                }
+                if(threads.x[l] < currMin){
+                    smallestThread = l;
+                    currMin = threads.x[l];
+                }
             }
-            if(threads.x[l] == currMin){
-                smallestThread = INT_MIN;
+            printf("Round %d finished. Winners are ", roundCounter);
+            if(smallestThread != INT_MIN){
+                threads.score[smallestThread]++;
+                printf("%d ", smallestThread);
             }
-            if(threads.x[l] < currMin){
-                smallestThread = l;
-                currMin = threads.x[l];
+            if(largestThread != INT_MAX){
+                threads.score[largestThread]++;
+                printf("%d ", largestThread);
             }
+            printf("\n");
+            nextRound = 0;
+            roundCounter++;
         }
-        printf("Round %d finished. Winners are ", roundCounter);
-        if(smallestThread != INT_MIN){
-            threads.score[smallestThread]++;
-            printf("%d ", smallestThread);
+        quitThread = true;
+
+        // Output thread scores & overall winner
+        int maxScore = 0;
+        printf("\n");
+        for (int n = 0; n < numThreads; n++){
+            if(threads.score[n] > maxScore){
+                maxScore = threads.score[n];
+            }
+            printf("Score for thread %d: %d\n", n, threads.score[n]);
+            pthread_join(threader[n], NULL);
         }
-        if(largestThread != INT_MAX){
-            threads.score[largestThread]++;
-            printf("%d ", largestThread);
+        printf("\nOverall winner: ");
+        for(int p = 0; p < numThreads; p++){
+            if(threads.score[p] == maxScore) {
+                printf("%d ", p);
+            }
         }
         printf("\n");
-        nextRound = 0;
-        roundCounter++;
 
-    }
-    quitThread = true;
-
-    int maxScore = 0;
-    for (int n = 0; n < numThreads; n++){
-        if(threads.score[n] > maxScore){
-            maxScore = threads.score[n];
-        }
-        printf("Score for thread %d: %d\n", n, threads.score[n]);
-        pthread_join(threader[n], NULL);
-    }
-    printf("\nOverall winner: ");
-    for(int p = 0; p < numThreads; p++){
-        if(threads.score[p] == maxScore) {
-            printf("%d ", p);
-        }
-    }
-    printf("\n");
-
-    freeThread(&threads);
-    pthread_exit(NULL);
+        freeThread(&threads);
+        pthread_exit(NULL);
+    /// Multi threading ends
     return 0;
 }
