@@ -9,6 +9,7 @@ int temp_a, temp_c, temp_m, temp_x = 0;         // make the temporary ints parse
 int sum = 0;
 int roundCounter = 0;
 bool quitThread = false;
+int nextRound = 0;
 int currThreadNum = 0;
 
 // need to make on heap so that it can be dynamic in size
@@ -23,6 +24,7 @@ typedef struct {                         // each thread is set to have 4 integer
     int *c;
     int *m;
     int *x;
+    int *score;
     size_t used_a;
     size_t size_a;
     size_t used_c;
@@ -31,6 +33,8 @@ typedef struct {                         // each thread is set to have 4 integer
     size_t size_m;
     size_t used_x;
     size_t size_x;
+    size_t used_score;
+    size_t size_score;
 } Thread;
 
 void initThread(Thread *thready, size_t initialSize){
@@ -38,6 +42,7 @@ void initThread(Thread *thready, size_t initialSize){
     thready->c = malloc(initialSize * sizeof(int));
     thready->m = malloc(initialSize * sizeof(int));
     thready->x = malloc(initialSize * sizeof(int));
+    thready->score = malloc(initialSize * sizeof(int));
     thready->used_a = 0;
     thready->size_a = initialSize;
     thready->used_c = 0;
@@ -46,6 +51,8 @@ void initThread(Thread *thready, size_t initialSize){
     thready->size_m = initialSize;
     thready->used_x = 0;
     thready->size_x = initialSize;
+    thready->used_score = 0;
+    thready->size_score = initialSize;
 }
 
 void insertThread(Thread *thready, int new_a, int new_c, int new_m, int new_x) {
@@ -65,10 +72,15 @@ void insertThread(Thread *thready, int new_a, int new_c, int new_m, int new_x) {
         thready->size_x *= 2;
         thready->x = realloc(thready->x,thready->size_x * sizeof(int));
     }
+    if(thready->used_score == thready->size_score){
+        thready->size_score *= 2;
+        thready->score = realloc(thready->score,thready->size_score * sizeof(int));
+    }
     thready->a[thready->used_a++] = new_a;
     thready->c[thready->used_c++] = new_c;
     thready->m[thready->used_m++] = new_m;
     thready->x[thready->used_x++] = new_x;
+    thready->score[thready->used_score++] = 0;
 }
 
 void freeThread(Thread *thready){
@@ -80,13 +92,15 @@ void freeThread(Thread *thready){
     thready->m = NULL;
     free(thready->x);
     thready->x = NULL;
+    free(thready->score);
+    thready->score = NULL;
     thready->used_a = thready->size_a = 0;
     thready->used_c = thready->size_c = 0;
     thready->used_m = thready->size_m = 0;
     thready->used_x = thready->size_x = 0;
+    thready->used_score = thready->size_score = 0;
 }
-
-struct Thread *threads;                                   // dynamically allocating thread struct cuz we have no idea how many threads exactly there may be
+Thread threads;
 int numThreads;                                         // number of threads to be created
 int numRounds;                                        // number of rounds to go through
 
@@ -94,7 +108,6 @@ int numRounds;                                        // number of rounds to go 
 // Function provided to generate random numbers
 int f1(int x, int a, int c, int m) {
     long int x1 = x * a + c;
-    printf("%d %d\n", (int)(x1 % m), x*a+c);
     return (int)(x1 % m);
 }
 
@@ -115,6 +128,17 @@ void *runner(void *param) {             // The thread will execute in this funct
 //    //
     int q = *((int *) param);
     printf("Child %d : Thread created\n", q);
+    int internalCounter = roundCounter;
+    int currSum = 0;
+    while(quitThread == false){
+        if(internalCounter == roundCounter && nextRound <= numThreads) {
+            currSum = f1(threads.x[q], threads.a[q], threads.c[q], threads.m[q]);
+            printf("threadView %d, %d, %d, %d: %d %d %d %d\n", q, roundCounter, nextRound, currSum, threads.x[q], threads.a[q],threads.c[q], threads.m[q]);
+            threads.x[q] = currSum;
+            nextRound++;
+        }
+        internalCounter++;
+    }
     pthread_exit(0);
 }
 
@@ -135,7 +159,6 @@ void *multiThreaderRunner(void *param) {
 // We assume the input file path to be accessed via argv[1]
 int main(int argc, char **argv) {
     printf("Name of Input File: %s\n", argv[1]);        // "when program starts, you should print out name of file"
-    Thread threads;
     /// File Parsing Starts Here
         FILE *in_file = fopen(argv[1], "r");
         struct stat sb;
@@ -187,11 +210,21 @@ int main(int argc, char **argv) {
     // Run through Rounds
     for(int j = 0; j < numRounds; j++){
         printf("Main process start round %d\n", j+1);
+        while(nextRound != numThreads){
+            // wait
+        }
+        // for all threads get x
+        // if x is largest or smallest (no tie), increment thread score
+        int smallestThread;
+        int largestThread;
         for(int l = 0; l < numThreads; l++){
             // update some global var here to send message to threads
         }
+        nextRound = 0;
         roundCounter++;
+
     }
+    quitThread = true;
 
     for (int m = 0; m < numThreads; m++){
         pthread_join(threader[m], NULL);
