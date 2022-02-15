@@ -108,12 +108,13 @@ void *runner(void *param) {             // The thread will execute in this funct
 //    for(i = 1; i <= upper; i++) {
 //        sum += i;
 //    }
-    //
-    Thread *curr_thread = param;
-    printf("threadView: %d %d %d %d\n", curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
-    sum = f1(curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
-    //
-
+//    //
+//    Thread *curr_thread = param;
+//    printf("threadView: %d %d %d %d\n", curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
+//    sum = f1(curr_thread->x[roundCounter],curr_thread->a[roundCounter],curr_thread->c[roundCounter],curr_thread->m[roundCounter]);
+//    //
+    int q = *((int *) param);
+    printf("Child %d : Thread created\n", q);
     pthread_exit(0);
 }
 
@@ -170,70 +171,31 @@ int main(int argc, char **argv) {
     /// End of Thread Experiment
 
 
-    // from sample github repo
-    srand(time(NULL));
-    pthread_t t[3];
-
-    for (int i = 0; i < 3; ++i){
-        if (pthread_cond_init(&c[i], NULL) != 0){
-            perror("Bad cond");
-            exit(1);
-        }
-        if (pthread_mutex_init(&m[i], NULL) != 0){
-            perror("Bad mutex");
-            exit(1);
-        }
-    }
-    if (pthread_mutex_init(&m2, NULL) != 0){
-        perror("Bad mutex");
-        exit(1);
-    }
-    // loop below for rounds
-    for (int i = 0; i < 3; ++i){
-        currThreadNum = i;
-        if (pthread_create(&t[i], NULL, multiThreaderRunner, &threads) != 0){
-            perror("Bad create");
-            exit(1);
-        }
-    }
-    for (int i = 0; i < 3; ++i) {
-        if (pthread_join(t[i], NULL) != 0) {
-            perror("Bad join");
-            exit(1);
-        }
-    }
-    for (int i = 0; i < 3; ++i){
-        if (pthread_mutex_destroy(&m[i]) != 0){
-            perror("Bad mutex destroy");
-            exit(1);
-        }
-        if (pthread_cond_destroy(&c[i]) != 0){
-            perror("Bad cond destroy");
-            exit(1);
-        }
-    }
-
-
 
     // Create all threads (each assigned number starting from 0)
     pthread_t threader[numThreads];
-    pthread_attr_t attributes[numThreads];
+    pthread_attr_t attribute;
+    pthread_attr_init(&attribute);
+
     for(int k = 0; k < numThreads; k++){
-        pthread_attr_init(&attributes[k]);
-        printf("Anotha one\n"); // remove after tests
-        pthread_create(&threader[k], &attributes[k], runner, &threads);
+        int *x = (int *)malloc(sizeof(int));
+        *x = k;
+        pthread_create(&(threader[k]), &attribute, runner, (void *) x);
+        printf("Parent: Created thread with ID: %d\n", threader[k]);
     }
 
     // Run through Rounds
     for(int j = 0; j < numRounds; j++){
         printf("Main process start round %d\n", j+1);
         for(int l = 0; l < numThreads; l++){
-//            pthread_attr_init(&attributes[l]);
-//            pthread_create(&threader[l], &attributes[l], runner, &threads);
-            pthread_join(threader[l], NULL);
-            printf("sum = %d\n", sum);
+            // update some global var here to send message to threads
         }
         roundCounter++;
+    }
+
+    for (int m = 0; m < numThreads; m++){
+        pthread_join(threader[m], NULL);
+        printf("Parent: Joined thread %d\n", threader[m]);
     }
 
     printf("Got Here! %s %d %d %d", argv[1], numThreads, numRounds, threads.a[2]);
